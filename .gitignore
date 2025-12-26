@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.cache/
+.vite/
+.pnpm-store/
+.env
+.env.*
+.DS_Store
+*.tsbuildinfo
+npm-debug.log*

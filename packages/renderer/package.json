@@ -1,0 +1,17 @@
+{
+  "name": "@openvisionmatrix/renderer",
+  "version": "0.0.0",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@openvisionmatrix/core": "0.0.0"
+  }
+}

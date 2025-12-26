@@ -1,0 +1,16 @@
+{
+  "name": "openvisionmatrix",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run -w @openvisionmatrix/pwa dev",
+    "typecheck": "npm run -w @openvisionmatrix/core typecheck && npm run -w @openvisionmatrix/renderer typecheck && npm run -w @openvisionmatrix/pwa typecheck",
+    "build": "npm run -w @openvisionmatrix/core build && npm run -w @openvisionmatrix/renderer build && npm run -w @openvisionmatrix/pwa build"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
