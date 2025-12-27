@@ -75,6 +75,7 @@ export type Surface = {
   quad: Quad;
   width: number;
   height: number;
+  locked?: boolean;
   visible: boolean;
   opacity: number;
   zIndex: number;

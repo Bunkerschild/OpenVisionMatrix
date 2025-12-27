@@ -44,6 +44,7 @@ type Surface = {
   quad: Quad;
   width: number;
   height: number;
+  locked: boolean;
   scaleX: number;
   scaleY: number;
   scaleMode: ScaleMode;
@@ -479,7 +480,9 @@ function SurfaceLayer({
         onPointerDown={(event) => {
           event.preventDefault();
           onSelect(surface.id);
-          onStartDrag(event, surface.id);
+          if (!surface.locked) {
+            onStartDrag(event, surface.id);
+          }
         }}
         onDragStart={(event) => event.preventDefault()}
       >
@@ -1009,6 +1012,7 @@ export default function App() {
       quad,
       width,
       height,
+      locked: false,
       scaleX: 1,
       scaleY: 1,
       scaleMode: "uniform",
@@ -1068,7 +1072,7 @@ export default function App() {
   const handleStartDragSurface = (event: ReactPointerEvent, surfaceId: string) => {
     if (isPlaying) return;
     const surface = surfaces.find((item) => item.id === surfaceId);
-    if (surface?.isFullscreen) return;
+    if (surface?.isFullscreen || surface?.locked) return;
     event.preventDefault();
     event.stopPropagation();
     const pos = getLocalPos(event.clientX, event.clientY);
@@ -1084,6 +1088,8 @@ export default function App() {
 
   const handleStartDragHandle = (event: ReactPointerEvent, surfaceId: string, index: number, mode: DragHandle["mode"]) => {
     if (isPlaying) return;
+    const surface = surfaces.find((item) => item.id === surfaceId);
+    if (surface?.isFullscreen || surface?.locked) return;
     event.preventDefault();
     event.stopPropagation();
     setDragHandle({ surfaceId, index, mode });
@@ -1097,7 +1103,7 @@ export default function App() {
 
   const handleAddMaskPoint = (surfaceId: string, index: number) => {
     const surface = surfaces.find((item) => item.id === surfaceId);
-    if (!surface || !surface.maskPoints || surface.maskPoints.length < 2) return;
+    if (!surface || surface.locked || !surface.maskPoints || surface.maskPoints.length < 2) return;
     const points = surface.maskPoints;
     const prev = points[(index - 1 + points.length) % points.length];
     const next = points[index % points.length];
@@ -1364,7 +1370,8 @@ export default function App() {
             fullscreenFit: surface.fullscreenFit ?? "contain",
             fullscreenAlign: surface.fullscreenAlign ?? "center",
             glowColor: surface.glowColor ?? "#38bdf8",
-            liveVideo: surface.type === SurfaceType.LIVE_VIDEO ? (surface.liveVideo ?? {}) : surface.liveVideo
+            liveVideo: surface.type === SurfaceType.LIVE_VIDEO ? (surface.liveVideo ?? {}) : surface.liveVideo,
+            locked: surface.locked ?? false
           })) as Surface[];
           setSurfaces(normalized);
           setSelectedId(null);
@@ -1547,12 +1554,22 @@ export default function App() {
                     <strong>{surface.name}</strong>
                     <span>{surface.type}</span>
                   </div>
-                  <div className="surface-actions">
-                    <button
-                      className={surface.visible ? "" : "muted"}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        updateSurface(surface.id, { visible: !surface.visible });
+                <div className="surface-actions">
+                  <button
+                    className={surface.locked ? "muted" : ""}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      updateSurface(surface.id, { locked: !surface.locked });
+                    }}
+                    title={surface.locked ? "Gesperrt" : "Entsperrt"}
+                  >
+                    {surface.locked ? "🔒" : "🔓"}
+                  </button>
+                  <button
+                    className={surface.visible ? "" : "muted"}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      updateSurface(surface.id, { visible: !surface.visible });
                       }}
                     >
                       {surface.visible ? "👁" : "🚫"}
@@ -1603,7 +1620,7 @@ export default function App() {
               />
             )}
 
-            {selectedSurface && selectedRenderQuad && !isPlaying && (
+            {selectedSurface && selectedRenderQuad && !isPlaying && !selectedSurface.locked && (
               <div className="overlay">
                 {editMode === "perspective" && !selectedSurface.isFullscreen && (
                   <>
@@ -1709,6 +1726,7 @@ export default function App() {
                   <input
                     type="text"
                     value={selectedSurface.name}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { name: event.target.value })
                     }
@@ -1719,18 +1737,21 @@ export default function App() {
                   <button
                     className={editMode === "perspective" ? "active" : ""}
                     onClick={() => setEditMode("perspective")}
+                    disabled={selectedSurface.locked}
                   >
                     Perspektive
                   </button>
                   <button
                     className={editMode === "scale" ? "active" : ""}
                     onClick={() => setEditMode("scale")}
+                    disabled={selectedSurface.locked}
                   >
                     Skalieren
                   </button>
                   <button
                     className={editMode === "mask" ? "active" : ""}
                     onClick={ensureMaskMode}
+                    disabled={selectedSurface.locked}
                   >
                     Maske
                   </button>
@@ -1738,10 +1759,21 @@ export default function App() {
 
                 {editMode === "mask" && (
                   <div className="inline-actions">
-                    <button className="ghost" onClick={resetMask}>Maske = Quad</button>
-                    <button className="ghost" onClick={clearMask}>Maske löschen</button>
+                    <button className="ghost" onClick={resetMask} disabled={selectedSurface.locked}>Maske = Quad</button>
+                    <button className="ghost" onClick={clearMask} disabled={selectedSurface.locked}>Maske löschen</button>
                   </div>
                 )}
+
+                <label className="field">
+                  Sperren
+                  <input
+                    type="checkbox"
+                    checked={selectedSurface.locked}
+                    onChange={(event) =>
+                      updateSurface(selectedSurface.id, { locked: event.target.checked })
+                    }
+                  />
+                </label>
 
                 <label className="field">
                   Sichtbarkeit
@@ -1762,6 +1794,7 @@ export default function App() {
                     max={1}
                     step={0.05}
                     value={selectedSurface.opacity}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { opacity: Number(event.target.value) })
                     }
@@ -1773,6 +1806,7 @@ export default function App() {
                   <input
                     type="number"
                     value={selectedSurface.zIndex}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { zIndex: Number(event.target.value) })
                     }
@@ -1785,6 +1819,7 @@ export default function App() {
                     <input
                       type="number"
                       value={Math.round(selectedSurface.width)}
+                      disabled={selectedSurface.locked}
                       onChange={(event) =>
                         updateSurface(selectedSurface.id, { width: Number(event.target.value) })
                       }
@@ -1792,6 +1827,7 @@ export default function App() {
                     <input
                       type="number"
                       value={Math.round(selectedSurface.height)}
+                      disabled={selectedSurface.locked}
                       onChange={(event) =>
                         updateSurface(selectedSurface.id, { height: Number(event.target.value) })
                       }
@@ -1806,6 +1842,7 @@ export default function App() {
                       type="number"
                       step={0.05}
                       value={Number(selectedSurface.scaleX.toFixed(2))}
+                      disabled={selectedSurface.locked}
                       onChange={(event) => {
                         const value = clampScale(Number(event.target.value));
                         if (selectedSurface.scaleMode === "uniform") {
@@ -1819,10 +1856,10 @@ export default function App() {
                       type="number"
                       step={0.05}
                       value={Number(selectedSurface.scaleY.toFixed(2))}
+                      disabled={selectedSurface.locked || selectedSurface.scaleMode === "uniform"}
                       onChange={(event) =>
                         updateSurface(selectedSurface.id, { scaleY: clampScale(Number(event.target.value)) })
                       }
-                      disabled={selectedSurface.scaleMode === "uniform"}
                     />
                   </div>
                 </label>
@@ -1832,6 +1869,7 @@ export default function App() {
                   <input
                     type="checkbox"
                     checked={selectedSurface.scaleMode === "uniform"}
+                    disabled={selectedSurface.locked}
                     onChange={(event) => {
                       const mode: ScaleMode = event.target.checked ? "uniform" : "free";
                       updateSurface(selectedSurface.id, {
@@ -1846,6 +1884,7 @@ export default function App() {
                   <button
                     className="ghost"
                     onClick={() => updateSurface(selectedSurface.id, { scaleX: 1, scaleY: 1 })}
+                    disabled={selectedSurface.locked}
                   >
                     Skalierung zurücksetzen
                   </button>
@@ -1855,6 +1894,7 @@ export default function App() {
                   Form
                   <select
                     value={selectedSurface.shape}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { shape: event.target.value as Shape })
                     }
@@ -1879,7 +1919,8 @@ export default function App() {
                     }
                     disabled={selectedSurface.type === SurfaceType.IMAGE
                       || selectedSurface.type === SurfaceType.VIDEO
-                      || selectedSurface.type === SurfaceType.LIVE_VIDEO}
+                      || selectedSurface.type === SurfaceType.LIVE_VIDEO
+                      || selectedSurface.locked}
                   />
                 </label>
 
@@ -1888,6 +1929,7 @@ export default function App() {
                   <input
                     type="checkbox"
                     checked={selectedSurface.isFullscreen}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { isFullscreen: event.target.checked })
                     }
@@ -1900,6 +1942,7 @@ export default function App() {
                       Fullscreen Fit
                       <select
                         value={selectedSurface.fullscreenFit}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { fullscreenFit: event.target.value as FullscreenFit })
                         }
@@ -1913,6 +1956,7 @@ export default function App() {
                       Fullscreen Ausrichtung
                       <select
                         value={selectedSurface.fullscreenAlign}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { fullscreenAlign: event.target.value as FullscreenAlign })
                         }
@@ -1934,6 +1978,7 @@ export default function App() {
                     min={0}
                     step={0.1}
                     value={selectedSurface.timelineStart}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { timelineStart: Number(event.target.value) })
                     }
@@ -1947,6 +1992,7 @@ export default function App() {
                     min={0.1}
                     step={0.1}
                     value={selectedSurface.timelineDuration}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { timelineDuration: Number(event.target.value) })
                     }
@@ -1959,6 +2005,7 @@ export default function App() {
                       Text
                       <textarea
                         value={selectedSurface.textContent}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { textContent: event.target.value })
                         }
@@ -1970,6 +2017,7 @@ export default function App() {
                         type="number"
                         min={12}
                         value={selectedSurface.fontSize}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { fontSize: Number(event.target.value) })
                         }
@@ -1980,6 +2028,7 @@ export default function App() {
                       <input
                         type="checkbox"
                         checked={selectedSurface.isVertical}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { isVertical: event.target.checked })
                         }
@@ -1991,16 +2040,17 @@ export default function App() {
                 {selectedSurface.type === SurfaceType.LINE && (
                   <label className="field">
                     Linienbreite
-                    <input
-                      type="range"
-                      min={1}
-                      max={40}
-                      value={selectedSurface.lineWidth}
-                      onChange={(event) =>
-                        updateSurface(selectedSurface.id, { lineWidth: Number(event.target.value) })
-                      }
-                    />
-                  </label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={40}
+                    value={selectedSurface.lineWidth}
+                    disabled={selectedSurface.locked}
+                    onChange={(event) =>
+                      updateSurface(selectedSurface.id, { lineWidth: Number(event.target.value) })
+                    }
+                  />
+                </label>
                 )}
 
                 {selectedSurface.type === SurfaceType.VIDEO && (
@@ -2009,6 +2059,7 @@ export default function App() {
                       Loop Mode
                       <select
                         value={selectedSurface.loopMode}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { loopMode: event.target.value as LoopMode })
                         }
@@ -2021,14 +2072,15 @@ export default function App() {
                     {selectedSurface.loopMode === "count" && (
                       <label className="field">
                         Loop Count
-                        <input
-                          type="number"
-                          min={1}
-                          value={selectedSurface.loopCount}
-                          onChange={(event) =>
-                            updateSurface(selectedSurface.id, { loopCount: Number(event.target.value) })
-                          }
-                        />
+                      <input
+                        type="number"
+                        min={1}
+                        value={selectedSurface.loopCount}
+                        disabled={selectedSurface.locked}
+                        onChange={(event) =>
+                          updateSurface(selectedSurface.id, { loopCount: Number(event.target.value) })
+                        }
+                      />
                       </label>
                     )}
                     <label className="field">
@@ -2039,6 +2091,7 @@ export default function App() {
                         max={1}
                         step={0.05}
                         value={selectedSurface.volume}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { volume: Number(event.target.value) })
                         }
@@ -2049,6 +2102,7 @@ export default function App() {
                       <input
                         type="checkbox"
                         checked={selectedSurface.isMuted}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateSurface(selectedSurface.id, { isMuted: event.target.checked })
                         }
@@ -2064,6 +2118,7 @@ export default function App() {
                       Live Kamera
                       <select
                         value={selectedSurface.liveVideo?.deviceId || ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) => updateLiveConfig({ deviceId: event.target.value || undefined })}
                       >
                         <option value="">Standard</option>
@@ -2075,7 +2130,9 @@ export default function App() {
                       </select>
                     </label>
                     <div className="inline-actions">
-                      <button className="ghost" onClick={refreshDevices}>Geräte aktualisieren</button>
+                      <button className="ghost" onClick={refreshDevices} disabled={selectedSurface.locked}>
+                        Geräte aktualisieren
+                      </button>
                     </div>
                     <label className="field">
                       Auflösung (px)
@@ -2084,12 +2141,14 @@ export default function App() {
                           type="number"
                           min={1}
                           value={selectedSurface.liveVideo?.width ?? liveInfo?.settings?.width ?? ""}
+                          disabled={selectedSurface.locked}
                           onChange={(event) => updateLiveConfig({ width: Number(event.target.value) || undefined })}
                         />
                         <input
                           type="number"
                           min={1}
                           value={selectedSurface.liveVideo?.height ?? liveInfo?.settings?.height ?? ""}
+                          disabled={selectedSurface.locked}
                           onChange={(event) => updateLiveConfig({ height: Number(event.target.value) || undefined })}
                         />
                       </div>
@@ -2101,6 +2160,7 @@ export default function App() {
                         min={1}
                         step={1}
                         value={selectedSurface.liveVideo?.frameRate ?? liveInfo?.settings?.frameRate ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) => updateLiveConfig({ frameRate: Number(event.target.value) || undefined })}
                       />
                     </label>
@@ -2110,6 +2170,7 @@ export default function App() {
                         type="number"
                         step={0.1}
                         value={selectedSurface.liveVideo?.brightness ?? liveInfo?.settings?.brightness ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) => updateLiveConfig({ brightness: Number(event.target.value) || undefined })}
                       />
                     </label>
@@ -2117,6 +2178,7 @@ export default function App() {
                       Weißabgleich
                       <select
                         value={selectedSurface.liveVideo?.whiteBalanceMode ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateLiveConfig({
                             whiteBalanceMode: event.target.value ? event.target.value as LiveVideoConfig["whiteBalanceMode"] : undefined
@@ -2135,6 +2197,7 @@ export default function App() {
                         type="number"
                         step={1}
                         value={selectedSurface.liveVideo?.colorTemperature ?? liveInfo?.settings?.colorTemperature ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) => updateLiveConfig({ colorTemperature: Number(event.target.value) || undefined })}
                       />
                     </label>
@@ -2144,6 +2207,7 @@ export default function App() {
                         type="number"
                         step={0.1}
                         value={selectedSurface.liveVideo?.contrast ?? liveInfo?.settings?.contrast ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) => updateLiveConfig({ contrast: Number(event.target.value) || undefined })}
                       />
                     </label>
@@ -2153,6 +2217,7 @@ export default function App() {
                         type="number"
                         step={0.1}
                         value={selectedSurface.liveVideo?.saturation ?? liveInfo?.settings?.saturation ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) => updateLiveConfig({ saturation: Number(event.target.value) || undefined })}
                       />
                     </label>
@@ -2162,6 +2227,7 @@ export default function App() {
                         type="number"
                         step={0.1}
                         value={selectedSurface.liveVideo?.sharpness ?? liveInfo?.settings?.sharpness ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) => updateLiveConfig({ sharpness: Number(event.target.value) || undefined })}
                       />
                     </label>
@@ -2169,6 +2235,7 @@ export default function App() {
                       Exposure Modus
                       <select
                         value={selectedSurface.liveVideo?.exposureMode ?? ""}
+                        disabled={selectedSurface.locked}
                         onChange={(event) =>
                           updateLiveConfig({
                             exposureMode: event.target.value ? event.target.value as LiveVideoConfig["exposureMode"] : undefined
@@ -2188,6 +2255,7 @@ export default function App() {
                   Animation
                   <select
                     value={selectedSurface.animationType}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { animationType: event.target.value as AnimationType })
                     }
@@ -2211,6 +2279,7 @@ export default function App() {
                     max={12}
                     step={0.5}
                     value={selectedSurface.animationSpeed}
+                    disabled={selectedSurface.locked}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { animationSpeed: Number(event.target.value) })
                     }
@@ -2222,6 +2291,7 @@ export default function App() {
                     <input
                       type="color"
                       value={selectedSurface.glowColor}
+                      disabled={selectedSurface.locked}
                       onChange={(event) =>
                         updateSurface(selectedSurface.id, { glowColor: event.target.value })
                       }
