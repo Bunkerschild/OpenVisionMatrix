@@ -8,6 +8,7 @@
       "@openvisionmatrix/core": ["../core/src"]
     },
     "disableSourceOfProjectReferenceRedirect": true,
+    "disableReferencedProjectLoad": true,
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
