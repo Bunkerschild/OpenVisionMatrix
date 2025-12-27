@@ -351,6 +351,10 @@ textarea {
   stroke: rgba(34, 197, 94, 0.8);
 }
 
+.quad-outline.scale {
+  stroke: rgba(251, 146, 60, 0.9);
+}
+
 .handle {
   position: absolute;
   width: 14px;
@@ -372,6 +376,10 @@ textarea {
 
 .handle.mask {
   background: #4ade80;
+}
+
+.handle.scale {
+  background: #fb923c;
 }
 
 .handle.ghost {
@@ -648,9 +656,9 @@ textarea {
 }
 
 @keyframes glow {
-  0% { filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4)); }
-  50% { filter: drop-shadow(0 0 18px rgba(56, 189, 248, 0.8)); }
-  100% { filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4)); }
+  0% { filter: drop-shadow(0 0 6px var(--glow-color, #38bdf8)); }
+  50% { filter: drop-shadow(0 0 18px var(--glow-color, #38bdf8)); }
+  100% { filter: drop-shadow(0 0 6px var(--glow-color, #38bdf8)); }
 }
 
 @keyframes chase {

@@ -6,14 +6,17 @@ import {
   useRef,
   useState
 } from "react";
-import type { Point2D, Polygon, Quad } from "@openvisionmatrix/core";
+import type { LiveVideoConfig, Point2D, Polygon, Quad, ScaleMode } from "@openvisionmatrix/core";
 import { SurfaceType } from "@openvisionmatrix/core";
 import {
   computeHomographyRectToQuad,
+  computeFullscreenQuad,
   cssMatrix3dToString,
+  getQuadCenter,
   homographyToCssMatrix3d
 } from "@openvisionmatrix/renderer";
-import type { Matrix4x4 } from "@openvisionmatrix/renderer";
+import type { FullscreenAlign, FullscreenFit, Matrix4x4 } from "@openvisionmatrix/renderer";
+import { scaleQuad } from "@openvisionmatrix/renderer";
 
 const STAGE_DEFAULT_WIDTH = 980;
 const STAGE_DEFAULT_HEIGHT = 620;
@@ -41,6 +44,12 @@ type Surface = {
   quad: Quad;
   width: number;
   height: number;
+  scaleX: number;
+  scaleY: number;
+  scaleMode: ScaleMode;
+  isFullscreen: boolean;
+  fullscreenFit: FullscreenFit;
+  fullscreenAlign: FullscreenAlign;
   visible: boolean;
   opacity: number;
   zIndex: number;
@@ -50,6 +59,7 @@ type Surface = {
   lineWidth: number;
   animationSpeed: number;
   animationType: AnimationType;
+  glowColor: string;
   isMuted: boolean;
   volume: number;
   timelineStart: number;
@@ -61,6 +71,7 @@ type Surface = {
   textContent: string;
   fontSize: number;
   isVertical: boolean;
+  liveVideo?: LiveVideoConfig;
 };
 
 type PlayConfig = {
@@ -73,7 +84,7 @@ type PlayConfig = {
 type DragHandle = {
   surfaceId: string;
   index: number;
-  isMask: boolean;
+  mode: "perspective" | "mask" | "scale";
 };
 
 function createId(): string {
@@ -85,6 +96,19 @@ function createId(): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function clampScale(value: number): number {
+  return clamp(value, 0.1, 10);
+}
+
+function unscalePoint(point: Point2D, center: Point2D, scaleX: number, scaleY: number): Point2D {
+  const safeScaleX = scaleX === 0 ? 1 : scaleX;
+  const safeScaleY = scaleY === 0 ? 1 : scaleY;
+  return {
+    x: center.x + (point.x - center.x) / safeScaleX,
+    y: center.y + (point.y - center.y) / safeScaleY
+  };
 }
 
 function formatTime(seconds: number): string {
@@ -127,20 +151,24 @@ function useLocalPos(containerRef: RefObject<HTMLDivElement>) {
 
 function SurfaceLayer({
   surface,
+  renderQuad,
   isSelected,
   isPlaying,
   globalTime,
   onSelect,
   onStartDrag,
-  isDragging
+  isDragging,
+  onLiveMeta
 }: {
   surface: Surface;
+  renderQuad: Quad;
   isSelected: boolean;
   isPlaying: boolean;
   globalTime: number;
   onSelect: (id: string) => void;
   onStartDrag: (event: ReactPointerEvent, id: string) => void;
   isDragging: boolean;
+  onLiveMeta: (id: string, meta: { capabilities?: MediaTrackCapabilities; settings?: MediaTrackSettings; error?: string }) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -150,7 +178,7 @@ function SurfaceLayer({
 
   const matrix: Matrix4x4 = useMemo(() => {
     try {
-      const H = computeHomographyRectToQuad(surface.width, surface.height, surface.quad);
+      const H = computeHomographyRectToQuad(surface.width, surface.height, renderQuad);
       return homographyToCssMatrix3d(H);
     } catch (error) {
       console.warn("Invalid homography", error);
@@ -161,7 +189,7 @@ function SurfaceLayer({
         0, 0, 0, 1
       ] as Matrix4x4;
     }
-  }, [surface.width, surface.height, surface.quad]);
+  }, [surface.width, surface.height, renderQuad]);
 
   useEffect(() => {
     if (surface.type !== SurfaceType.VIDEO) return;
@@ -224,6 +252,74 @@ function SurfaceLayer({
     globalTime
   ]);
 
+  useEffect(() => {
+    if (surface.type !== SurfaceType.LIVE_VIDEO) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      onLiveMeta(surface.id, { error: "getUserMedia nicht verfügbar." });
+      return;
+    }
+
+    let active = true;
+    let stream: MediaStream | null = null;
+
+    const buildConstraints = (config?: LiveVideoConfig): MediaTrackConstraints => {
+      if (!config) return {};
+      const toIdeal = (value?: number) => (value ? { ideal: value } : undefined);
+      return {
+        deviceId: config.deviceId ? { exact: config.deviceId } : undefined,
+        width: toIdeal(config.width),
+        height: toIdeal(config.height),
+        frameRate: toIdeal(config.frameRate),
+        brightness: toIdeal(config.brightness),
+        contrast: toIdeal(config.contrast),
+        saturation: toIdeal(config.saturation),
+        sharpness: toIdeal(config.sharpness),
+        whiteBalanceMode: config.whiteBalanceMode ? { ideal: config.whiteBalanceMode } : undefined,
+        colorTemperature: toIdeal(config.colorTemperature),
+        exposureMode: config.exposureMode ? { ideal: config.exposureMode } : undefined
+      };
+    };
+
+    const startStream = async () => {
+      try {
+        const constraints = buildConstraints(surface.liveVideo);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: constraints,
+          audio: false
+        });
+        if (!active) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          video.play().catch(() => undefined);
+        }
+        const track = stream.getVideoTracks()[0];
+        onLiveMeta(surface.id, {
+          capabilities: track?.getCapabilities ? track.getCapabilities() : undefined,
+          settings: track?.getSettings ? track.getSettings() : undefined
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Live-Video konnte nicht gestartet werden.";
+        onLiveMeta(surface.id, { error: message });
+      }
+    };
+
+    startStream();
+
+    return () => {
+      active = false;
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [surface.id, surface.type, surface.liveVideo, onLiveMeta]);
+
   const maskClip = useMemo(() => {
     if (!surface.maskPoints || surface.maskPoints.length < 3) return undefined;
     if (surface.type === SurfaceType.LINE) return undefined;
@@ -258,7 +354,8 @@ function SurfaceLayer({
     clipPath: maskClip,
     pointerEvents: "none",
     opacity: isActive && surface.visible ? surface.opacity : 0,
-    transition: isPlaying ? "opacity 0.2s ease" : undefined
+    transition: isPlaying ? "opacity 0.2s ease" : undefined,
+    ...(surface.glowColor ? ({ ["--glow-color"]: surface.glowColor } as CSSProperties) : {})
   };
 
   const surfaceStyle: CSSProperties = {
@@ -298,6 +395,15 @@ function SurfaceLayer({
           <video
             ref={videoRef}
             src={surface.src}
+            className="surface-media"
+            playsInline
+            muted={surface.isMuted}
+          />
+        );
+      case SurfaceType.LIVE_VIDEO:
+        return (
+          <video
+            ref={videoRef}
             className="surface-media"
             playsInline
             muted={surface.isMuted}
@@ -777,7 +883,7 @@ export default function App() {
 
   const [surfaces, setSurfaces] = useState<Surface[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editMode, setEditMode] = useState<"perspective" | "mask">("perspective");
+  const [editMode, setEditMode] = useState<"perspective" | "mask" | "scale">("perspective");
   const [dragHandle, setDragHandle] = useState<DragHandle | null>(null);
   const [dragSurfaceId, setDragSurfaceId] = useState<string | null>(null);
   const [lastPos, setLastPos] = useState<Point2D | null>(null);
@@ -796,24 +902,76 @@ export default function App() {
   const [uploadShape, setUploadShape] = useState<Shape>("rect");
   const [dragListId, setDragListId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [stageSize, setStageSize] = useState({ width: STAGE_DEFAULT_WIDTH, height: STAGE_DEFAULT_HEIGHT });
+  const [mediaDevices, setMediaDevices] = useState<MediaDeviceInfo[]>([]);
+  const [liveMeta, setLiveMeta] = useState<Record<string, { capabilities?: MediaTrackCapabilities; settings?: MediaTrackSettings; error?: string }>>({});
 
   const timerRef = useRef<number | null>(null);
   const dragPointerId = useRef<number | null>(null);
   const dragPointerTarget = useRef<Element | null>(null);
 
   const getStageSize = useCallback(() => {
-    const rect = stageRef.current?.getBoundingClientRect();
-    return {
-      width: rect?.width || window.innerWidth || STAGE_DEFAULT_WIDTH,
-      height: rect?.height || window.innerHeight || STAGE_DEFAULT_HEIGHT
+    return stageSize;
+  }, [stageSize]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const updateSize = () => {
+      const rect = stage.getBoundingClientRect();
+      setStageSize({
+        width: rect.width || STAGE_DEFAULT_WIDTH,
+        height: rect.height || STAGE_DEFAULT_HEIGHT
+      });
     };
+
+    updateSize();
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => updateSize());
+      observer.observe(stage);
+    }
+
+    window.addEventListener("resize", updateSize);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, []);
+
+  const refreshDevices = useCallback(() => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices()
+      .then((devices) => setMediaDevices(devices))
+      .catch(() => undefined);
   }, []);
 
   const selectedSurface = surfaces.find((surface) => surface.id === selectedId) || null;
 
+  useEffect(() => {
+    refreshDevices();
+  }, [refreshDevices]);
+
   const updateSurface = useCallback((id: string, updates: Partial<Surface>) => {
     setSurfaces((prev) => prev.map((surface) => (surface.id === id ? { ...surface, ...updates } : surface)));
   }, []);
+
+  const getRenderQuad = useCallback((surface: Surface) => {
+    const baseQuad = surface.isFullscreen
+      ? computeFullscreenQuad(
+        stageSize.width,
+        stageSize.height,
+        surface.width,
+        surface.height,
+        surface.fullscreenFit,
+        surface.fullscreenAlign
+      )
+      : surface.quad;
+    return surface.isFullscreen ? baseQuad : scaleQuad(baseQuad, surface.scaleX, surface.scaleY);
+  }, [stageSize]);
 
   const reorderSurfaces = useCallback((fromId: string, toId: string) => {
     setSurfaces((prev) => {
@@ -851,6 +1009,12 @@ export default function App() {
       quad,
       width,
       height,
+      scaleX: 1,
+      scaleY: 1,
+      scaleMode: "uniform",
+      isFullscreen: false,
+      fullscreenFit: "contain",
+      fullscreenAlign: "center",
       visible: true,
       opacity: 1,
       zIndex: nextIndex,
@@ -859,7 +1023,8 @@ export default function App() {
       lineWidth: 8,
       animationSpeed: 0,
       animationType: "none",
-      isMuted: false,
+      glowColor: "#38bdf8",
+      isMuted: type === SurfaceType.LIVE_VIDEO,
       volume: 1,
       timelineStart: 0,
       timelineDuration: duration || 10,
@@ -869,13 +1034,26 @@ export default function App() {
       loopCount: 1,
       textContent: type === SurfaceType.TEXT ? "OPENVISION" : "",
       fontSize: type === SurfaceType.TEXT ? 64 : 24,
-      isVertical: false
+      isVertical: false,
+      liveVideo: type === SurfaceType.LIVE_VIDEO ? {} : undefined
     };
     setSurfaces((prev) => [...prev, newSurface]);
     setSelectedId(newSurface.id);
     setEditMode("perspective");
     return newSurface;
   }, [surfaces.length]);
+
+  const addLiveSurface = useCallback(() => {
+    const surface = addSurface(
+      SurfaceType.LIVE_VIDEO,
+      "",
+      "rect",
+      DEFAULT_SIZE.width,
+      DEFAULT_SIZE.height
+    );
+    updateSurface(surface.id, { name: `Live Source ${surfaces.length + 1}` });
+    refreshDevices();
+  }, [addSurface, refreshDevices, surfaces.length, updateSurface]);
 
   const removeSurface = useCallback((id: string) => {
     setSurfaces((prev) => prev.filter((surface) => surface.id !== id));
@@ -889,6 +1067,8 @@ export default function App() {
 
   const handleStartDragSurface = (event: ReactPointerEvent, surfaceId: string) => {
     if (isPlaying) return;
+    const surface = surfaces.find((item) => item.id === surfaceId);
+    if (surface?.isFullscreen) return;
     event.preventDefault();
     event.stopPropagation();
     const pos = getLocalPos(event.clientX, event.clientY);
@@ -902,11 +1082,11 @@ export default function App() {
     }
   };
 
-  const handleStartDragHandle = (event: ReactPointerEvent, surfaceId: string, index: number, isMask: boolean) => {
+  const handleStartDragHandle = (event: ReactPointerEvent, surfaceId: string, index: number, mode: DragHandle["mode"]) => {
     if (isPlaying) return;
     event.preventDefault();
     event.stopPropagation();
-    setDragHandle({ surfaceId, index, isMask });
+    setDragHandle({ surfaceId, index, mode });
     setSelectedId(surfaceId);
     if (event.currentTarget instanceof Element && event.currentTarget.setPointerCapture) {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -925,7 +1105,7 @@ export default function App() {
     const updated = [...points];
     updated.splice(index, 0, mid);
     updateSurface(surfaceId, { maskPoints: updated });
-    setDragHandle({ surfaceId, index, isMask: true });
+    setDragHandle({ surfaceId, index, mode: "mask" });
   };
 
   useEffect(() => {
@@ -936,13 +1116,37 @@ export default function App() {
       if (dragHandle) {
         setSurfaces((prev) => prev.map((surface) => {
           if (surface.id !== dragHandle.surfaceId) return surface;
-          if (dragHandle.isMask) {
+          if (dragHandle.mode === "mask") {
             const maskPoints = surface.maskPoints ? [...surface.maskPoints] : [];
             if (maskPoints[dragHandle.index]) maskPoints[dragHandle.index] = pos;
             return { ...surface, maskPoints };
           }
+          if (dragHandle.mode === "scale") {
+            const center = getQuadCenter(surface.quad);
+            const baseCorner = surface.quad[dragHandle.index];
+            let nextScaleX = baseCorner.x !== center.x
+              ? (pos.x - center.x) / (baseCorner.x - center.x)
+              : surface.scaleX;
+            let nextScaleY = baseCorner.y !== center.y
+              ? (pos.y - center.y) / (baseCorner.y - center.y)
+              : surface.scaleY;
+            if (!Number.isFinite(nextScaleX)) nextScaleX = surface.scaleX;
+            if (!Number.isFinite(nextScaleY)) nextScaleY = surface.scaleY;
+            if (surface.scaleMode === "uniform") {
+              const uniform = Math.abs(nextScaleX) >= Math.abs(nextScaleY) ? nextScaleX : nextScaleY;
+              nextScaleX = uniform;
+              nextScaleY = uniform;
+            }
+            return {
+              ...surface,
+              scaleX: clampScale(nextScaleX),
+              scaleY: clampScale(nextScaleY)
+            };
+          }
+          const center = getQuadCenter(surface.quad);
+          const unscaled = unscalePoint(pos, center, surface.scaleX, surface.scaleY);
           const quad = [...surface.quad];
-          quad[dragHandle.index] = pos;
+          quad[dragHandle.index] = unscaled;
           return { ...surface, quad } as Surface;
         }));
         return;
@@ -952,6 +1156,7 @@ export default function App() {
         const dy = pos.y - lastPos.y;
         setSurfaces((prev) => prev.map((surface) => {
           if (surface.id !== dragSurfaceId) return surface;
+          if (surface.isFullscreen) return surface;
           const quad = surface.quad.map((p) => ({ x: p.x + dx, y: p.y + dy })) as Quad;
           const maskPoints = surface.maskPoints
             ? surface.maskPoints.map((p) => ({ x: p.x + dx, y: p.y + dy }))
@@ -1073,7 +1278,7 @@ export default function App() {
   const ensureMaskMode = () => {
     if (!selectedSurface) return;
     if (!selectedSurface.maskPoints || selectedSurface.maskPoints.length === 0) {
-      updateSurface(selectedSurface.id, { maskPoints: [...selectedSurface.quad] });
+      updateSurface(selectedSurface.id, { maskPoints: [...getRenderQuad(selectedSurface)] });
     }
     setEditMode("mask");
   };
@@ -1086,7 +1291,7 @@ export default function App() {
 
   const resetMask = () => {
     if (!selectedSurface) return;
-    updateSurface(selectedSurface.id, { maskPoints: [...selectedSurface.quad] });
+    updateSurface(selectedSurface.id, { maskPoints: [...getRenderQuad(selectedSurface)] });
   };
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, shape: Shape) => {
@@ -1146,9 +1351,22 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(reader.result as string) as Surface[];
+        const parsed = JSON.parse(reader.result as string) as Partial<Surface>[];
         if (Array.isArray(parsed)) {
-          setSurfaces(parsed);
+          const normalized = parsed.map((surface, index) => ({
+            ...surface,
+            id: surface.id ?? createId(),
+            name: surface.name ?? `Surface ${index + 1}`,
+            scaleX: surface.scaleX ?? 1,
+            scaleY: surface.scaleY ?? 1,
+            scaleMode: surface.scaleMode ?? "uniform",
+            isFullscreen: surface.isFullscreen ?? false,
+            fullscreenFit: surface.fullscreenFit ?? "contain",
+            fullscreenAlign: surface.fullscreenAlign ?? "center",
+            glowColor: surface.glowColor ?? "#38bdf8",
+            liveVideo: surface.type === SurfaceType.LIVE_VIDEO ? (surface.liveVideo ?? {}) : surface.liveVideo
+          })) as Surface[];
+          setSurfaces(normalized);
           setSelectedId(null);
         }
       } catch (error) {
@@ -1189,6 +1407,29 @@ export default function App() {
   };
 
   const activeMaskPoints = selectedSurface?.maskPoints || [];
+  const selectedRenderQuad = selectedSurface ? getRenderQuad(selectedSurface) : null;
+  const liveInfo = selectedSurface ? liveMeta[selectedSurface.id] : undefined;
+  const videoDevices = useMemo(
+    () => mediaDevices.filter((device) => device.kind === "videoinput"),
+    [mediaDevices]
+  );
+
+  const handleLiveMeta = useCallback((id: string, meta: { capabilities?: MediaTrackCapabilities; settings?: MediaTrackSettings; error?: string }) => {
+    setLiveMeta((prev) => ({ ...prev, [id]: { ...prev[id], ...meta } }));
+    if (meta.settings && mediaDevices.length === 0) {
+      refreshDevices();
+    }
+  }, [mediaDevices.length, refreshDevices]);
+
+  const updateLiveConfig = useCallback((updates: Partial<LiveVideoConfig>) => {
+    if (!selectedSurface) return;
+    updateSurface(selectedSurface.id, {
+      liveVideo: {
+        ...(selectedSurface.liveVideo ?? {}),
+        ...updates
+      }
+    });
+  }, [selectedSurface, updateSurface]);
 
   return (
     <div className={`app ${hideUI ? "ui-hidden" : ""}`}>
@@ -1237,6 +1478,9 @@ export default function App() {
               </button>
               <button onClick={() => addSurface(SurfaceType.LINE, "#22d3ee", "rect", 320, 220)}>
                 Linie
+              </button>
+              <button onClick={addLiveSurface}>
+                Live Video
               </button>
               <button onClick={() => setShowWindowDrawing(true)}>Canvas Draw</button>
               <button onClick={() => setShowStageDrawing(true)}>Stage Draw</button>
@@ -1339,12 +1583,14 @@ export default function App() {
               <SurfaceLayer
                 key={surface.id}
                 surface={surface}
+                renderQuad={getRenderQuad(surface)}
                 isSelected={selectedId === surface.id}
                 isPlaying={isPlaying}
                 globalTime={currentTime}
                 onSelect={handleSelect}
                 onStartDrag={handleStartDragSurface}
                 isDragging={dragSurfaceId === surface.id}
+                onLiveMeta={handleLiveMeta}
               />
             ))}
             {showStageDrawing && (
@@ -1355,30 +1601,57 @@ export default function App() {
               />
             )}
 
-            {selectedSurface && !isPlaying && (
+            {selectedSurface && selectedRenderQuad && !isPlaying && (
               <div className="overlay">
-                {editMode === "perspective" && (
+                {editMode === "perspective" && !selectedSurface.isFullscreen && (
                   <>
                     <svg className="quad-outline">
                       <polygon
-                        points={selectedSurface.quad.map((p) => `${p.x},${p.y}`).join(" ")}
+                        points={selectedRenderQuad.map((p) => `${p.x},${p.y}`).join(" ")}
                       />
                     </svg>
-                    {selectedSurface.quad.map((corner, index) => (
+                    {selectedRenderQuad.map((corner, index) => (
                       <div
                         key={`corner-${index}`}
                         className="handle"
                         style={{ left: corner.x, top: corner.y }}
                         onPointerDown={(event) =>
-                          handleStartDragHandle(event, selectedSurface.id, index, false)
+                          handleStartDragHandle(event, selectedSurface.id, index, "perspective")
                         }
                       />
                     ))}
                     <div
                       className="handle center"
                       style={{
-                        left: (selectedSurface.quad[0].x + selectedSurface.quad[2].x) / 2,
-                        top: (selectedSurface.quad[0].y + selectedSurface.quad[2].y) / 2
+                        left: (selectedRenderQuad[0].x + selectedRenderQuad[2].x) / 2,
+                        top: (selectedRenderQuad[0].y + selectedRenderQuad[2].y) / 2
+                      }}
+                      onPointerDown={(event) => handleStartDragSurface(event, selectedSurface.id)}
+                    />
+                  </>
+                )}
+                {editMode === "scale" && !selectedSurface.isFullscreen && (
+                  <>
+                    <svg className="quad-outline scale">
+                      <polygon
+                        points={selectedRenderQuad.map((p) => `${p.x},${p.y}`).join(" ")}
+                      />
+                    </svg>
+                    {selectedRenderQuad.map((corner, index) => (
+                      <div
+                        key={`scale-${index}`}
+                        className="handle scale"
+                        style={{ left: corner.x, top: corner.y }}
+                        onPointerDown={(event) =>
+                          handleStartDragHandle(event, selectedSurface.id, index, "scale")
+                        }
+                      />
+                    ))}
+                    <div
+                      className="handle center"
+                      style={{
+                        left: (selectedRenderQuad[0].x + selectedRenderQuad[2].x) / 2,
+                        top: (selectedRenderQuad[0].y + selectedRenderQuad[2].y) / 2
                       }}
                       onPointerDown={(event) => handleStartDragSurface(event, selectedSurface.id)}
                     />
@@ -1398,7 +1671,7 @@ export default function App() {
                             className="handle mask"
                             style={{ left: point.x, top: point.y }}
                             onPointerDown={(event) =>
-                              handleStartDragHandle(event, selectedSurface.id, index, true)
+                              handleStartDragHandle(event, selectedSurface.id, index, "mask")
                             }
                             onDoubleClick={() => {
                               if (activeMaskPoints.length <= 3) return;
@@ -1446,6 +1719,12 @@ export default function App() {
                     onClick={() => setEditMode("perspective")}
                   >
                     Perspektive
+                  </button>
+                  <button
+                    className={editMode === "scale" ? "active" : ""}
+                    onClick={() => setEditMode("scale")}
+                  >
+                    Skalieren
                   </button>
                   <button
                     className={editMode === "mask" ? "active" : ""}
@@ -1519,6 +1798,58 @@ export default function App() {
                 </label>
 
                 <label className="field">
+                  Skalierung
+                  <div className="field-row">
+                    <input
+                      type="number"
+                      step={0.05}
+                      value={Number(selectedSurface.scaleX.toFixed(2))}
+                      onChange={(event) => {
+                        const value = clampScale(Number(event.target.value));
+                        if (selectedSurface.scaleMode === "uniform") {
+                          updateSurface(selectedSurface.id, { scaleX: value, scaleY: value });
+                          return;
+                        }
+                        updateSurface(selectedSurface.id, { scaleX: value });
+                      }}
+                    />
+                    <input
+                      type="number"
+                      step={0.05}
+                      value={Number(selectedSurface.scaleY.toFixed(2))}
+                      onChange={(event) =>
+                        updateSurface(selectedSurface.id, { scaleY: clampScale(Number(event.target.value)) })
+                      }
+                      disabled={selectedSurface.scaleMode === "uniform"}
+                    />
+                  </div>
+                </label>
+
+                <label className="field">
+                  Seitenverhältnis sperren
+                  <input
+                    type="checkbox"
+                    checked={selectedSurface.scaleMode === "uniform"}
+                    onChange={(event) => {
+                      const mode: ScaleMode = event.target.checked ? "uniform" : "free";
+                      updateSurface(selectedSurface.id, {
+                        scaleMode: mode,
+                        scaleY: event.target.checked ? selectedSurface.scaleX : selectedSurface.scaleY
+                      });
+                    }}
+                  />
+                </label>
+
+                <div className="inline-actions">
+                  <button
+                    className="ghost"
+                    onClick={() => updateSurface(selectedSurface.id, { scaleX: 1, scaleY: 1 })}
+                  >
+                    Skalierung zurücksetzen
+                  </button>
+                </div>
+
+                <label className="field">
                   Form
                   <select
                     value={selectedSurface.shape}
@@ -1536,13 +1867,63 @@ export default function App() {
                   Farbe / Quelle
                   <input
                     type="color"
-                    value={selectedSurface.type === SurfaceType.IMAGE || selectedSurface.type === SurfaceType.VIDEO ? "#ffffff" : selectedSurface.src}
+                    value={selectedSurface.type === SurfaceType.IMAGE
+                      || selectedSurface.type === SurfaceType.VIDEO
+                      || selectedSurface.type === SurfaceType.LIVE_VIDEO
+                      ? "#ffffff"
+                      : selectedSurface.src}
                     onChange={(event) =>
                       updateSurface(selectedSurface.id, { src: event.target.value })
                     }
-                    disabled={selectedSurface.type === SurfaceType.IMAGE || selectedSurface.type === SurfaceType.VIDEO}
+                    disabled={selectedSurface.type === SurfaceType.IMAGE
+                      || selectedSurface.type === SurfaceType.VIDEO
+                      || selectedSurface.type === SurfaceType.LIVE_VIDEO}
                   />
                 </label>
+
+                <label className="field">
+                  Fullscreen
+                  <input
+                    type="checkbox"
+                    checked={selectedSurface.isFullscreen}
+                    onChange={(event) =>
+                      updateSurface(selectedSurface.id, { isFullscreen: event.target.checked })
+                    }
+                  />
+                </label>
+
+                {selectedSurface.isFullscreen && (
+                  <>
+                    <label className="field">
+                      Fullscreen Fit
+                      <select
+                        value={selectedSurface.fullscreenFit}
+                        onChange={(event) =>
+                          updateSurface(selectedSurface.id, { fullscreenFit: event.target.value as FullscreenFit })
+                        }
+                      >
+                        <option value="stretch">Strecken</option>
+                        <option value="contain">Contain</option>
+                        <option value="cover">Cover</option>
+                      </select>
+                    </label>
+                    <label className="field">
+                      Fullscreen Ausrichtung
+                      <select
+                        value={selectedSurface.fullscreenAlign}
+                        onChange={(event) =>
+                          updateSurface(selectedSurface.id, { fullscreenAlign: event.target.value as FullscreenAlign })
+                        }
+                      >
+                        <option value="center">Zentriert</option>
+                        <option value="top-left">Oben links</option>
+                        <option value="top-right">Oben rechts</option>
+                        <option value="bottom-left">Unten links</option>
+                        <option value="bottom-right">Unten rechts</option>
+                      </select>
+                    </label>
+                  </>
+                )}
 
                 <label className="field">
                   Timeline Start (s)
@@ -1674,6 +2055,133 @@ export default function App() {
                   </>
                 )}
 
+                {selectedSurface.type === SurfaceType.LIVE_VIDEO && (
+                  <>
+                    {liveInfo?.error && <p className="empty">{liveInfo.error}</p>}
+                    <label className="field">
+                      Live Kamera
+                      <select
+                        value={selectedSurface.liveVideo?.deviceId || ""}
+                        onChange={(event) => updateLiveConfig({ deviceId: event.target.value || undefined })}
+                      >
+                        <option value="">Standard</option>
+                        {videoDevices.map((device) => (
+                          <option key={device.deviceId} value={device.deviceId}>
+                            {device.label || `Kamera ${device.deviceId.slice(0, 6)}`}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="inline-actions">
+                      <button className="ghost" onClick={refreshDevices}>Geräte aktualisieren</button>
+                    </div>
+                    <label className="field">
+                      Auflösung (px)
+                      <div className="field-row">
+                        <input
+                          type="number"
+                          min={1}
+                          value={selectedSurface.liveVideo?.width ?? liveInfo?.settings?.width ?? ""}
+                          onChange={(event) => updateLiveConfig({ width: Number(event.target.value) || undefined })}
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          value={selectedSurface.liveVideo?.height ?? liveInfo?.settings?.height ?? ""}
+                          onChange={(event) => updateLiveConfig({ height: Number(event.target.value) || undefined })}
+                        />
+                      </div>
+                    </label>
+                    <label className="field">
+                      Frame Rate
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={selectedSurface.liveVideo?.frameRate ?? liveInfo?.settings?.frameRate ?? ""}
+                        onChange={(event) => updateLiveConfig({ frameRate: Number(event.target.value) || undefined })}
+                      />
+                    </label>
+                    <label className="field">
+                      Helligkeit
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={selectedSurface.liveVideo?.brightness ?? liveInfo?.settings?.brightness ?? ""}
+                        onChange={(event) => updateLiveConfig({ brightness: Number(event.target.value) || undefined })}
+                      />
+                    </label>
+                    <label className="field">
+                      Weißabgleich
+                      <select
+                        value={selectedSurface.liveVideo?.whiteBalanceMode ?? ""}
+                        onChange={(event) =>
+                          updateLiveConfig({
+                            whiteBalanceMode: event.target.value ? event.target.value as LiveVideoConfig["whiteBalanceMode"] : undefined
+                          })
+                        }
+                      >
+                        <option value="">Automatisch</option>
+                        {(liveInfo?.capabilities?.whiteBalanceMode || []).map((mode) => (
+                          <option key={mode} value={mode}>{mode}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      Farbtemperatur
+                      <input
+                        type="number"
+                        step={1}
+                        value={selectedSurface.liveVideo?.colorTemperature ?? liveInfo?.settings?.colorTemperature ?? ""}
+                        onChange={(event) => updateLiveConfig({ colorTemperature: Number(event.target.value) || undefined })}
+                      />
+                    </label>
+                    <label className="field">
+                      Kontrast
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={selectedSurface.liveVideo?.contrast ?? liveInfo?.settings?.contrast ?? ""}
+                        onChange={(event) => updateLiveConfig({ contrast: Number(event.target.value) || undefined })}
+                      />
+                    </label>
+                    <label className="field">
+                      Sättigung
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={selectedSurface.liveVideo?.saturation ?? liveInfo?.settings?.saturation ?? ""}
+                        onChange={(event) => updateLiveConfig({ saturation: Number(event.target.value) || undefined })}
+                      />
+                    </label>
+                    <label className="field">
+                      Schärfe
+                      <input
+                        type="number"
+                        step={0.1}
+                        value={selectedSurface.liveVideo?.sharpness ?? liveInfo?.settings?.sharpness ?? ""}
+                        onChange={(event) => updateLiveConfig({ sharpness: Number(event.target.value) || undefined })}
+                      />
+                    </label>
+                    <label className="field">
+                      Exposure Modus
+                      <select
+                        value={selectedSurface.liveVideo?.exposureMode ?? ""}
+                        onChange={(event) =>
+                          updateLiveConfig({
+                            exposureMode: event.target.value ? event.target.value as LiveVideoConfig["exposureMode"] : undefined
+                          })
+                        }
+                      >
+                        <option value="">Automatisch</option>
+                        {(liveInfo?.capabilities?.exposureMode || []).map((mode) => (
+                          <option key={mode} value={mode}>{mode}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+
                 <label className="field">
                   Animation
                   <select
@@ -1706,6 +2214,18 @@ export default function App() {
                     }
                   />
                 </label>
+                {selectedSurface.animationType === "glow" && (
+                  <label className="field">
+                    Glow Farbe
+                    <input
+                      type="color"
+                      value={selectedSurface.glowColor}
+                      onChange={(event) =>
+                        updateSurface(selectedSurface.id, { glowColor: event.target.value })
+                      }
+                    />
+                  </label>
+                )}
               </div>
             )}
           </section>

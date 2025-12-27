@@ -12,10 +12,48 @@ export type Polygon = Point2D[];
 export enum SurfaceType {
   IMAGE = "IMAGE",
   VIDEO = "VIDEO",
+  LIVE_VIDEO = "LIVE_VIDEO",
   COLOR = "COLOR",
   TEXT = "TEXT",
   LINE = "LINE"
 }
+
+export type ScaleMode = "uniform" | "free";
+
+export type SurfaceScale = {
+  x: number;
+  y: number;
+  mode: ScaleMode;
+};
+
+export type FullscreenFit = "stretch" | "contain" | "cover";
+
+export type FullscreenAlign =
+  | "center"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+export type FullscreenLayout = {
+  enabled: boolean;
+  fit: FullscreenFit;
+  align: FullscreenAlign;
+};
+
+export type LiveVideoConfig = {
+  deviceId?: string;
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  sharpness?: number;
+  whiteBalanceMode?: "continuous" | "manual";
+  colorTemperature?: number;
+  exposureMode?: "continuous" | "manual";
+};
 
 export type AssetRef = {
   id: string;
@@ -35,10 +73,16 @@ export type Surface = {
   id: string;
   type: SurfaceType;
   quad: Quad;
+  width: number;
+  height: number;
   visible: boolean;
   opacity: number;
   zIndex: number;
   mask?: Polygon;
+  scale: SurfaceScale;
+  fullscreen: FullscreenLayout;
+  glowColor?: string;
+  liveVideo?: LiveVideoConfig;
 };
 
 export type Project = {
