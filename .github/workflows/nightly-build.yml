@@ -64,3 +64,29 @@ jobs:
 
       - name: Remove builder debug artifact
         run: node -e "const fs=require('fs');const p='apps/desktop/release/builder-debug.yml';if(fs.existsSync(p)) fs.rmSync(p);"
+
+      - name: VirusTotal scan
+        if: ${{ secrets.VIRUSTOTAL_API_KEY != '' }}
+        shell: bash
+        env:
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(apps/desktop/release/*.exe apps/desktop/release/*.AppImage apps/desktop/release/*.dmg)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No nightly artifacts found for VirusTotal."
+            exit 0
+          fi
+          for file in "${files[@]}"; do
+            echo "Uploading $file to VirusTotal"
+            response=$(curl -sS --fail -X POST "https://www.virustotal.com/api/v3/files" \
+              -H "x-apikey: ${VIRUSTOTAL_API_KEY}" \
+              -F "file=@${file}")
+            analysis_id=$(node -e "let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>{try{const json=JSON.parse(data);console.log(json.data?.id??'');}catch(_){console.log('');}});" <<< "$response")
+            if [ -n "$analysis_id" ]; then
+              echo "VirusTotal analysis: https://www.virustotal.com/gui/analysis/$analysis_id"
+            else
+              echo "VirusTotal response: $response"
+            fi
+          done

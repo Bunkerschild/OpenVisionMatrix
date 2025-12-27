@@ -9,6 +9,9 @@ Open-source projection mapping and spatial transformation engine.
 
 [![Nightly Build](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/nightly-build.yml)
 [![Create Stable Release](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml)
+[![VirusTotal Windows](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/nightly-build.yml?label=VirusTotal%20Windows)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/nightly-build.yml)
+[![VirusTotal macOS](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/nightly-build.yml?label=VirusTotal%20macOS)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/nightly-build.yml)
+[![VirusTotal Linux](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/nightly-build.yml?label=VirusTotal%20Linux)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/nightly-build.yml)
 [![GitHub release](https://img.shields.io/github/v/release/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/releases)
 [![GitHub downloads](https://img.shields.io/github/downloads/Bunkerschild/OpenVisionMatrix/total.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/releases)
 [![Last commit](https://img.shields.io/github/last-commit/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/commits/main)
