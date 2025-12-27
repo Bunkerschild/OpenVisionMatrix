@@ -1409,6 +1409,8 @@ export default function App() {
   const activeMaskPoints = selectedSurface?.maskPoints || [];
   const selectedRenderQuad = selectedSurface ? getRenderQuad(selectedSurface) : null;
   const liveInfo = selectedSurface ? liveMeta[selectedSurface.id] : undefined;
+  const whiteBalanceModes = liveInfo?.capabilities?.whiteBalanceMode ?? [];
+  const exposureModes = liveInfo?.capabilities?.exposureMode ?? [];
   const videoDevices = useMemo(
     () => mediaDevices.filter((device) => device.kind === "videoinput"),
     [mediaDevices]
@@ -2122,7 +2124,7 @@ export default function App() {
                         }
                       >
                         <option value="">Automatisch</option>
-                        {(liveInfo?.capabilities?.whiteBalanceMode || []).map((mode) => (
+                        {whiteBalanceModes.map((mode) => (
                           <option key={mode} value={mode}>{mode}</option>
                         ))}
                       </select>
@@ -2174,7 +2176,7 @@ export default function App() {
                         }
                       >
                         <option value="">Automatisch</option>
-                        {(liveInfo?.capabilities?.exposureMode || []).map((mode) => (
+                        {exposureModes.map((mode) => (
                           <option key={mode} value={mode}>{mode}</option>
                         ))}
                       </select>
