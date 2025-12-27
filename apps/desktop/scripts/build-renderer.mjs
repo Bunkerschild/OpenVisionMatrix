@@ -1,7 +1,10 @@
 import { spawn } from "node:child_process";
 
+const isWindows = process.platform === "win32";
+const npmCmd = isWindows ? "npm.cmd" : "npm";
+
 const child = spawn(
-  "npm",
+  npmCmd,
   ["run", "-w", "@openvisionmatrix/pwa", "build"],
   {
     stdio: "inherit",

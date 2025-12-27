@@ -6,6 +6,9 @@ import { dirname, join } from "node:path";
 const root = dirname(fileURLToPath(import.meta.url));
 const appDir = join(root, "..", "..", "..");
 const distMain = join(appDir, "apps", "desktop", "dist", "main.js");
+const isWindows = process.platform === "win32";
+const npmCmd = isWindows ? "npm.cmd" : "npm";
+const npxCmd = isWindows ? "npx.cmd" : "npx";
 
 const run = (cmd, args, env) => {
   const child = spawn(cmd, args, {
@@ -19,11 +22,11 @@ const run = (cmd, args, env) => {
   return child;
 };
 
-run("npm", ["run", "-w", "@openvisionmatrix/pwa", "dev", "--", "--host"], {
+run(npmCmd, ["run", "-w", "@openvisionmatrix/pwa", "dev", "--", "--host"], {
   BROWSER: "none"
 });
 
-run("npm", ["run", "-w", "@openvisionmatrix/desktop", "build:main", "--", "--watch"], {});
+run(npmCmd, ["run", "-w", "@openvisionmatrix/desktop", "build:main", "--", "--watch"], {});
 
 const waitForMain = () => new Promise((resolve) => {
   const check = () => {
@@ -35,6 +38,6 @@ const waitForMain = () => new Promise((resolve) => {
 
 await waitForMain();
 
-run("npx", ["electron", distMain], {
+run(npxCmd, ["electron", distMain], {
   OVM_DEV_SERVER_URL: "http://localhost:5173"
 });
