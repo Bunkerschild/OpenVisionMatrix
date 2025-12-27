@@ -89,45 +89,6 @@ jobs:
       - name: Remove builder debug artifact
         run: node -e "const fs=require('fs');const p='apps/desktop/release/builder-debug.yml';if(fs.existsSync(p)) fs.rmSync(p);"
 
-      - name: VirusTotal scan
-        shell: bash
-        env:
-          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
-        run: |
-          set -uo pipefail
-          if [ -z "${VIRUSTOTAL_API_KEY}" ]; then
-            echo "VirusTotal API key not set; skipping scan."
-            exit 0
-          fi
-          shopt -s nullglob
-          files=(apps/desktop/release/*.exe apps/desktop/release/*.AppImage apps/desktop/release/*.dmg)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No nightly artifacts found for VirusTotal."
-            exit 0
-          fi
-          max_bytes=$((650 * 1024 * 1024))
-          for file in "${files[@]}"; do
-            size=$(wc -c < "$file")
-            if [ "$size" -gt "$max_bytes" ]; then
-              echo "Skipping $file (size ${size} bytes exceeds VirusTotal limit)"
-              continue
-            fi
-            echo "Uploading $file to VirusTotal"
-            response=$(curl -sS -X POST "https://www.virustotal.com/api/v3/files" \
-              -H "x-apikey: ${VIRUSTOTAL_API_KEY}" \
-              -F "file=@${file}" || true)
-            if [ -z "$response" ]; then
-              echo "VirusTotal upload failed for $file"
-              continue
-            fi
-            analysis_id=$(node -e "let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>{try{const json=JSON.parse(data);console.log(json.data?.id??'');}catch(_){console.log('');}});" <<< "$response")
-            if [ -n "$analysis_id" ]; then
-              echo "VirusTotal analysis: https://www.virustotal.com/gui/analysis/$analysis_id"
-            else
-              echo "VirusTotal response: $response"
-            fi
-          done
-
       - name: Upload nightly artifacts
         uses: actions/upload-artifact@v4
         with:
