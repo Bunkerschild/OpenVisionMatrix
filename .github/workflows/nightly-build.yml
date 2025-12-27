@@ -61,3 +61,6 @@ jobs:
 
       - name: Build desktop
         run: npm run -w @openvisionmatrix/desktop build
+
+      - name: Remove builder debug artifact
+        run: node -e "const fs=require('fs');const p='apps/desktop/release/builder-debug.yml';if(fs.existsSync(p)) fs.rmSync(p);"
