@@ -7,9 +7,9 @@ Open-source projection mapping and spatial transformation engine.
 [![GitHub stars](https://img.shields.io/github/stars/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/network)
 
-[![VirusTotal Windows](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/release-build.yml?label=VirusTotal%20Windows)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/release-build.yml)
-[![VirusTotal macOS](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/release-build.yml?label=VirusTotal%20macOS)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/release-build.yml)
-[![VirusTotal Linux](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/release-build.yml?label=VirusTotal%20Linux)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/release-build.yml)
+[![VirusTotal Windows](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/build-release.yml?label=VirusTotal%20Windows)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml)
+[![VirusTotal macOS](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/build-release.yml?label=VirusTotal%20macOS)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml)
+[![VirusTotal Linux](https://img.shields.io/github/actions/workflow/status/Bunkerschild/OpenVisionMatrix/build-release.yml?label=VirusTotal%20Linux)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml)
 
 [![Build-Test](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build.yml)
 [![CodeQL Advanced](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/codeql.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/codeql.yml)
