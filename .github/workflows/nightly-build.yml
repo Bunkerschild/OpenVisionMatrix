@@ -26,3 +26,38 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  build-desktop:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Cache Electron artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            C:\Users\runneradmin\AppData\Local\electron\Cache
+            C:\Users\runneradmin\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Build desktop
+        run: npm run -w @openvisionmatrix/desktop build

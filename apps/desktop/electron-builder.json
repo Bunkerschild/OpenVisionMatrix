@@ -1,0 +1,28 @@
+{
+  "appId": "com.bunkerschild.openvisionmatrix",
+  "productName": "OpenVisionMatrix",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**",
+    "package.json"
+  ],
+  "artifactName": "OpenVisionMatrix-${version}-${os}-${arch}.${ext}",
+  "extraResources": [
+    {
+      "from": "../pwa/dist",
+      "to": "pwa"
+    }
+  ],
+  "mac": {
+    "target": ["dmg"],
+    "identity": null
+  },
+  "win": {
+    "target": ["portable"]
+  },
+  "linux": {
+    "target": ["AppImage"]
+  }
+}

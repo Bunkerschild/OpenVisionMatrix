@@ -8,31 +8,15 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: write
+
 jobs:
-  build-release:
+  prepare:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Build
-        run: npm run build
-
       - name: Generate tag
         id: tag
         run: echo "tag=v$(date -u +%Y.%m.%d-%H%M%S)" >> "$GITHUB_OUTPUT"
@@ -44,3 +28,46 @@ jobs:
           name: ${{ steps.tag.outputs.tag }}
           body: ${{ inputs.notes }}
           generate_release_notes: true
+
+  build-desktop:
+    runs-on: ${{ matrix.os }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Cache Electron artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            C:\Users\runneradmin\AppData\Local\electron\Cache
+            C:\Users\runneradmin\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Build desktop
+        run: npm run -w @openvisionmatrix/desktop build
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: apps/desktop/release/*
+          fail_on_unmatched_files: true
