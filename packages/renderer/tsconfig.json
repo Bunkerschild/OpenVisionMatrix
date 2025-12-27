@@ -3,6 +3,10 @@
     "target": "ES2020",
     "module": "ES2020",
     "moduleResolution": "Node",
+    "baseUrl": ".",
+    "paths": {
+      "@openvisionmatrix/core": ["../core/src"]
+    },
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,

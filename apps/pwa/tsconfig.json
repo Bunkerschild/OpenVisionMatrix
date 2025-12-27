@@ -4,6 +4,11 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@openvisionmatrix/core": ["../../packages/core/src"],
+      "@openvisionmatrix/renderer": ["../../packages/renderer/src"]
+    },
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
