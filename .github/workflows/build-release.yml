@@ -94,12 +94,15 @@ jobs:
         run: node -e "const fs=require('fs');const p='apps/desktop/release/builder-debug.yml';if(fs.existsSync(p)) fs.rmSync(p);"
 
       - name: VirusTotal scan
-        if: ${{ secrets.VIRUSTOTAL_API_KEY != '' }}
         shell: bash
         env:
           VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
         run: |
           set -euo pipefail
+          if [ -z "${VIRUSTOTAL_API_KEY}" ]; then
+            echo "VirusTotal API key not set; skipping scan."
+            exit 0
+          fi
           shopt -s nullglob
           files=(apps/desktop/release/*.exe apps/desktop/release/*.AppImage apps/desktop/release/*.dmg)
           if [ ${#files[@]} -eq 0 ]; then
