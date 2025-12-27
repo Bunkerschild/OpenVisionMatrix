@@ -1,0 +1,46 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: "Release notes (optional)"
+        required: false
+        type: string
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Generate tag
+        id: tag
+        run: echo "tag=v$(date -u +%Y.%m.%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          body: ${{ inputs.notes }}
+          generate_release_notes: true
