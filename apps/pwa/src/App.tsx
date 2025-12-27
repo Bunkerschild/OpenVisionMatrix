@@ -1213,6 +1213,14 @@ export default function App() {
             Import
             <input type="file" accept="application/json" onChange={importProject} />
           </label>
+          <a
+            className="ghost"
+            href="https://github.com/Bunkerschild/OpenVisionMatrix"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
         </div>
       </header>
 
