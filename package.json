@@ -5,14 +5,16 @@
     "packages/*",
     "apps/*"
   ],
+  "dependencies": {
+    "7zip-bin": "^5.2.0",
+    "app-builder-bin": "^4.0.0"
+  },
   "scripts": {
     "dev": "npm run -w @openvisionmatrix/pwa dev",
     "typecheck": "npm run -w @openvisionmatrix/core typecheck && npm run -w @openvisionmatrix/renderer typecheck && npm run -w @openvisionmatrix/pwa typecheck",
     "build": "npm run -w @openvisionmatrix/core build && npm run -w @openvisionmatrix/renderer build && npm run -w @openvisionmatrix/pwa build"
   },
   "devDependencies": {
-    "7zip-bin": "^5.2.0",
-    "app-builder-bin": "^4.0.0",
     "electron-builder": "^24.13.3",
     "typescript": "^5.5.4"
   }
