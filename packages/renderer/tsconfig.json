@@ -3,12 +3,6 @@
     "target": "ES2020",
     "module": "ES2020",
     "moduleResolution": "Node",
-    "baseUrl": ".",
-    "paths": {
-      "@openvisionmatrix/core": ["../core/src"]
-    },
-    "disableSourceOfProjectReferenceRedirect": true,
-    "disableReferencedProjectLoad": true,
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,

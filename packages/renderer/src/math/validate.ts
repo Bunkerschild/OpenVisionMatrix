@@ -1,4 +1,5 @@
-import type { Point2D, Quad } from "@openvisionmatrix/core";
+import type { Quad } from "@openvisionmatrix/core";
+import type { Point2D } from "./types";
 
 const DEFAULT_EPSILON = 1e-6;
 
