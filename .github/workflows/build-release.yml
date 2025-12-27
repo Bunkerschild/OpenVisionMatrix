@@ -65,6 +65,9 @@ jobs:
       - name: Build desktop
         run: npm run -w @openvisionmatrix/desktop build
 
+      - name: Remove builder debug artifact
+        run: node -e "const fs=require('fs');const p='apps/desktop/release/builder-debug.yml';if(fs.existsSync(p)) fs.rmSync(p);"
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
