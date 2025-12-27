@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "7zip-bin": "^5.2.0",
+    "app-builder-bin": "^4.0.0",
     "electron-builder": "^24.13.3",
     "typescript": "^5.5.4"
   }
