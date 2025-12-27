@@ -10,6 +10,7 @@ Open-source projection mapping and spatial transformation engine.
 [![GitHub downloads](https://img.shields.io/github/downloads/Bunkerschild/OpenVisionMatrix/total.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/releases)
 [![Last commit](https://img.shields.io/github/last-commit/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/commits/main)
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
+[![Nightly Build](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/nightly-build.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/nightly-build.yml)
 
 [![Build-Test](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build.yml)
 [![Create Stable Release](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml)
