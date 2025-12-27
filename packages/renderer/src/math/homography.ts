@@ -1,6 +1,4 @@
-import type { Quad } from "@openvisionmatrix/core";
-import type { Matrix3x3 } from "./types";
-import type { Point2D } from "./types";
+import type { Matrix3x3, Point2D, Quad } from "./types";
 import { validateQuad } from "./validate";
 
 const DEFAULT_EPSILON = 1e-6;
