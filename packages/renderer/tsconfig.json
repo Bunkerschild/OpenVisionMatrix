@@ -7,6 +7,7 @@
     "paths": {
       "@openvisionmatrix/core": ["../core/src"]
     },
+    "disableSourceOfProjectReferenceRedirect": true,
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
