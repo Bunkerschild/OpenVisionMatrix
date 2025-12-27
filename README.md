@@ -2,6 +2,20 @@
 
 Open-source projection mapping and spatial transformation engine.
 
+[![GitHub stars](https://img.shields.io/github/stars/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/network)
+
+[![License: AGPLv3](https://img.shields.io/badge/License-AGPLv3-green.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/releases)
+[![GitHub downloads](https://img.shields.io/github/downloads/Bunkerschild/OpenVisionMatrix/total.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/releases)
+[![Last commit](https://img.shields.io/github/last-commit/Bunkerschild/OpenVisionMatrix.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/commits/main)
+[![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
+
+[![Build-Test](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build.yml)
+[![Create Stable Release](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/build-release.yml)
+[![CodeQL Advanced](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/codeql.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/codeql.yml)
+[![Deploy GitHub Pages](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/jekyll-gh-pages.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/jekyll-gh-pages.yml)
+
 ## Scope
 - Projection mapping on arbitrary surfaces
 - Perspective warping & masking
