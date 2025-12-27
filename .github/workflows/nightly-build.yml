@@ -19,7 +19,7 @@ jobs:
           cache: "npm"
 
       - name: Install
-        run: npm ci
+        run: npm ci --production=false
 
       - name: Typecheck
         run: npm run typecheck
@@ -57,7 +57,7 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install
-        run: npm ci
+        run: npm ci --production=false
 
       - name: Build desktop
         run: npm run -w @openvisionmatrix/desktop build

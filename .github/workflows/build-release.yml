@@ -60,7 +60,7 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install
-        run: npm ci
+        run: npm ci --production=false
 
       - name: Build desktop
         run: npm run -w @openvisionmatrix/desktop build
