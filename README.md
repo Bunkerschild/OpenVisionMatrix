@@ -18,6 +18,8 @@ Open-source projection mapping and spatial transformation engine.
 [![Deploy GitHub Pages](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/jekyll-gh-pages.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/jekyll-gh-pages.yml)
 [![Dependency Review](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/Bunkerschild/OpenVisionMatrix/actions/workflows/dependency-review.yml)
 
+Online demo: https://bunkerschild.github.io/OpenVisionMatrix/
+
 
 ## Scope
 - Projection mapping on arbitrary surfaces
